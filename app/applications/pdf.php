@@ -1,0 +1,55 @@
+<?php
+  use setasign\Fpdi\Fpdi;
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+  require_once('../../extras/vendor/setasign/fpdf/fpdf.php');
+  require_once('../../extras/vendor/setasign/fpdi/src/autoload.php');
+
+  if(isset($_GET['id'])){
+    require '../../includes/db-config.php';
+    session_start();
+  
+    $id = mysqli_real_escape_string($conn, $_GET['id']);
+    $id = base64_decode($id);
+    $id = intval(str_replace('W1Ebt1IhGN3ZOLplom9I', '', $id));
+    
+    $pdf = new Fpdi();
+	$pdfArr = [];
+    $pdf->SetTitle('Export Documents for '.$id);
+	$imgArr = ['JPEG','jpeg','JPG','jpg','PNG','png'];
+    $documents = $conn->query("SELECT Location FROM Student_Documents WHERE Student_ID = $id");
+    while($document = $documents->fetch_assoc()){
+      $files = explode("|", $document['Location']);
+      foreach($files as $file){
+        if(file_exists('../..'.$file))
+        {
+        	$ext = pathinfo($file, PATHINFO_EXTENSION);
+            if(in_array($ext,$imgArr))
+            {
+                $pdf->AddPage();
+                $pdf->SetMargins(10, 10, 10);
+                $pdf->image("../..".$file, 10, 10, 190, 270);
+            }
+            else
+            {
+                $pdfArr[] = $file;
+            }
+        }
+      }
+    }
+    foreach($pdfArr as $pdffile)
+    {
+      if(file_exists($pdffile))
+      {
+      	$pagecount = $pdf->setSourceFile('../..'.$pdffile);  
+        for($i=0; $i<$pagecount; $i++){
+            $pdf->AddPage();  
+            $tplidx = $pdf->importPage($i+1, '/MediaBox');
+            $pdf->useTemplate($tplidx, 10, 10, 200); 
+        }  
+      }  
+    }
+
+    $pdf->Output('I', $id.'_Documents.pdf');
+  }
